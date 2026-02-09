@@ -1,5 +1,7 @@
 # uv-scripts
 
+[![PyPI](https://img.shields.io/pypi/v/uv-scripts)](https://pypi.org/project/uv-scripts/)
+
 A lightweight, zero-dependency script runner for [uv](https://docs.astral.sh/uv/). Define project scripts in `pyproject.toml` and run them through `uv run`.
 
 ```
