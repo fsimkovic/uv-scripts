@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import __version__
-from .config import ConfigError, load_scripts
-from .runner import run_script
+from uv_scripts import __version__
+from uv_scripts.config import ConfigError, ScriptDef, load_scripts
+from uv_scripts.runner import run_script
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> None:
     sys.exit(exit_code)
 
 
-def _print_list(scripts: dict) -> None:
+def _print_list(scripts: dict[str, ScriptDef]) -> None:
     """Print a formatted list of available scripts."""
     if not scripts:
         print("No scripts defined.")
@@ -95,9 +95,8 @@ def _print_list(scripts: dict) -> None:
         script = scripts[name]
         help_text = script.help_text
         if not help_text:
-            if script.is_composite:
-                help_text = " -> ".join(script.commands)
-            else:
-                help_text = script.commands[0]
+            help_text = (
+                " -> ".join(script.commands) if script.is_composite else script.commands[0]
+            )
 
         print(f"  {name:<{max_name}}  {help_text}")

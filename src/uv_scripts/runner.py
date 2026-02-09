@@ -7,7 +7,7 @@ import shlex
 import subprocess
 import sys
 
-from .config import ScriptDef
+from uv_scripts.config import ConfigError, ScriptDef
 
 
 def run_script(
@@ -17,25 +17,25 @@ def run_script(
     verbose: bool = False,
 ) -> int:
     """Execute a script definition. Returns exit code (0 = success)."""
-    commands = resolve_commands(script, all_scripts)
+    steps = resolve_steps(script, all_scripts)
 
-    for i, cmd_str in enumerate(commands):
-        if extra_args and i == len(commands) - 1:
+    for i, (cmd_str, env) in enumerate(steps):
+        if extra_args and i == len(steps) - 1:
             cmd_str = cmd_str + " " + " ".join(shlex.quote(a) for a in extra_args)
 
-        exit_code = _exec_one(cmd_str, script.env, verbose)
+        exit_code = _exec_one(cmd_str, env, verbose)
         if exit_code != 0:
             return exit_code
 
     return 0
 
 
-def resolve_commands(
+def resolve_steps(
     script: ScriptDef,
     all_scripts: dict[str, ScriptDef],
     _seen: set[str] | None = None,
-) -> list[str]:
-    """Resolve composite scripts into a flat command list.
+) -> list[tuple[str, dict[str, str]]]:
+    """Resolve a script into a flat list of (command, env) pairs.
 
     Handles references to other scripts and detects cycles.
     """
@@ -43,20 +43,19 @@ def resolve_commands(
         _seen = set()
 
     if script.name in _seen:
-        print(f"uvs: circular reference detected: {script.name}", file=sys.stderr)
-        sys.exit(1)
+        raise ConfigError(f"Circular reference detected: {script.name}")
     _seen.add(script.name)
 
     if not script.is_composite:
-        return list(script.commands)
+        return [(cmd, script.env) for cmd in script.commands]
 
-    result: list[str] = []
+    result: list[tuple[str, dict[str, str]]] = []
     for item in script.commands:
         if item in all_scripts:
             referenced = all_scripts[item]
-            result.extend(resolve_commands(referenced, all_scripts, _seen.copy()))
+            result.extend(resolve_steps(referenced, all_scripts, _seen.copy()))
         else:
-            result.append(item)
+            result.append((item, script.env))
 
     return result
 
@@ -67,7 +66,7 @@ def _exec_one(cmd_str: str, env: dict[str, str], verbose: bool) -> int:
     full_cmd = ["uv", "run"] + parts
 
     if verbose:
-        env_prefix = " ".join(f"{k}={v}" for k, v in env.items())
+        env_prefix = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         display = f"{env_prefix} {' '.join(full_cmd)}".strip()
         print(f"$ {display}", file=sys.stderr)
 

@@ -26,17 +26,8 @@ def in_project(tmp_path, monkeypatch):
 
 
 class TestList:
-    def test_list_shows_scripts(self, in_project, capsys):
-        main(["--list"])
-        out = capsys.readouterr().out
-        assert "test" in out
-        assert "serve" in out
-
     def test_list_output(self, in_project, capsys):
-        try:
-            main(["--list"])
-        except SystemExit:
-            pass
+        main(["--list"])
         out = capsys.readouterr().out
         assert "test" in out
         assert "lint" in out
