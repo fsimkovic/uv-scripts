@@ -1,0 +1,71 @@
+Implement the following plan:
+
+# Add `features` (optional dependencies) support to uvs
+
+## Context
+
+uvs currently has no way to install optional dependency groups (extras) when running scripts. Users who define `[project.optional-dependencies]` in their `pyproject.toml` can't opt into those extras via uvs. Adding a `features` config key (mirroring Hatch's convention) lets users declare which extras to install, translating to `--extra <name>` flags on every `uv run` invocation.
+
+## Changes
+
+### 1. `src/uv_script/config.py` — parse `features` from config
+
+- Add `features: list[str]` field to `UvsConfig` (default: empty list)
+- In `load_config()`, after the editable parsing block (line 70), parse `features` from `uvs_table`:
+  - Validate it's a list of strings (same pattern as `editable`, but **no path resolution** — these are extra names, not paths)
+  - Raise `ConfigError` on invalid types
+- Pass `features` to the `UvsConfig` return
+
+Example config:
+```toml
+[tool.uvs]
+features = ["speedups", "cli"]
+```
+
+### 2. `src/uv_script/runner.py` — add `--extra` flags to `uv run`
+
+- Add `features: list[str] | None = None` parameter to `run_script()` and `_exec_one()`
+- In `_exec_one()`, build `features_flags` list: `["--extra", name]` for each feature
+- Insert flags after editable flags, before command parts:
+  ```
+  ["uv", "run"] + editable_flags + features_flags + parts
+  ```
+- Thread `features` from `run_script()` into `_exec_one()` calls
+
+### 3. `src/uv_script/cli.py` — add `--no-features` flag
+
+- Add `--no-features` argument (mirrors `--no-editable`)
+- Compute: `features = None if parsed.no_features else (config.features or None)`
+- Pass `features=features` to `run_script()`
+
+### 4. Tests
+
+**`tests/test_config.py`** — add to `TestLoadConfig`:
+- `test_features_parsed` — features list loaded correctly
+- `test_no_features_defaults_to_empty` — omitted features → empty list
+- `test_features_not_a_list_raises` — string value → ConfigError
+- `test_features_non_string_item_raises` — non-string item → ConfigError
+
+**`tests/test_runner.py`** — add to `TestRunScript`:
+- `test_features_flags_in_command` — `--extra` flags appear correctly
+- `test_features_with_editable` — ordering: editable flags before features flags
+- `test_features_applied_to_all_composite_steps` — every step gets the flags
+
+**`tests/test_cli.py`** — new `TestFeatures` class:
+- `test_features_from_config` — end-to-end: config → `--extra` flags in command
+- `test_no_features_flag_disables` — `--no-features` suppresses extras
+
+## Verification
+
+```bash
+uv run pytest tests/ -v          # all tests pass
+uv run ruff check src/           # no lint issues
+uv run ty check src/             # no type errors
+```
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/felixs/.REDACTED.jsonl
+
+---
+
+commit this
