@@ -40,6 +40,16 @@ Three modules in `src/uv_script/`, each with a single responsibility:
 
 Tests use pytest with `unittest.mock` for subprocess and filesystem mocking. Test files mirror source modules: `test_cli.py`, `test_config.py`, `test_runner.py`.
 
+## Releasing
+
+To bump the version:
+
+1. Update `version` in `pyproject.toml`
+2. Commit with `chore: bump version to X.Y.Z`
+3. Tag the commit: `git tag vX.Y.Z`
+4. Push the commit and tag upstream: `git push && git push --tags`
+5. Create a new GitHub release for the tag: `gh release create vX.Y.Z --generate-notes`
+
 ## CI
 
 GitHub Actions matrix tests Python 3.12, 3.13, 3.14. Publishing to PyPI happens on GitHub release via `uv build` + `pypa/gh-action-pypi-publish`.
